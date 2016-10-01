@@ -1,0 +1,1 @@
+g++ hello_world_node.cpp -o hello_world_node -I/opt/ros/hydro/include -L/opt/ros/hydro/lib -Wl,-rpath,/opt/ros/hydro/lib -lroscpp -lrosconsole -lrostime

@@ -1,0 +1,57 @@
+Determining if the pthread_create exist failed with the following output:
+Change Dir: /home/kevin/rosbuild_ws/package_dir/IMU_COMport_Listener/build/CMakeFiles/CMakeTmp
+
+Run Build Command:"/usr/bin/make" "cmTryCompileExec163340357/fast"
+make[1]: entrant dans le répertoire « /home/kevin/rosbuild_ws/package_dir/IMU_COMport_Listener/build/CMakeFiles/CMakeTmp »
+/usr/bin/make -f CMakeFiles/cmTryCompileExec163340357.dir/build.make CMakeFiles/cmTryCompileExec163340357.dir/build
+make[2]: entrant dans le répertoire « /home/kevin/rosbuild_ws/package_dir/IMU_COMport_Listener/build/CMakeFiles/CMakeTmp »
+/usr/bin/cmake -E cmake_progress_report /home/kevin/rosbuild_ws/package_dir/IMU_COMport_Listener/build/CMakeFiles/CMakeTmp/CMakeFiles 1
+Building C object CMakeFiles/cmTryCompileExec163340357.dir/CheckSymbolExists.c.o
+/usr/bin/cc    -o CMakeFiles/cmTryCompileExec163340357.dir/CheckSymbolExists.c.o   -c /home/kevin/rosbuild_ws/package_dir/IMU_COMport_Listener/build/CMakeFiles/CMakeTmp/CheckSymbolExists.c
+Linking C executable cmTryCompileExec163340357
+/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTryCompileExec163340357.dir/link.txt --verbose=1
+/usr/bin/cc       CMakeFiles/cmTryCompileExec163340357.dir/CheckSymbolExists.c.o  -o cmTryCompileExec163340357 -rdynamic 
+CMakeFiles/cmTryCompileExec163340357.dir/CheckSymbolExists.c.o: dans la fonction « main »:
+CheckSymbolExists.c:(.text+0xa): référence indéfinie vers « pthread_create »
+collect2: error: ld returned 1 exit status
+make[2]: *** [cmTryCompileExec163340357] Erreur 1
+make[2]: quittant le répertoire « /home/kevin/rosbuild_ws/package_dir/IMU_COMport_Listener/build/CMakeFiles/CMakeTmp »
+make[1]: *** [cmTryCompileExec163340357/fast] Erreur 2
+make[1]: quittant le répertoire « /home/kevin/rosbuild_ws/package_dir/IMU_COMport_Listener/build/CMakeFiles/CMakeTmp »
+
+File /home/kevin/rosbuild_ws/package_dir/IMU_COMport_Listener/build/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <pthread.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef pthread_create
+  return ((int*)(&pthread_create))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+
+Determining if the function pthread_create exists in the pthreads failed with the following output:
+Change Dir: /home/kevin/rosbuild_ws/package_dir/IMU_COMport_Listener/build/CMakeFiles/CMakeTmp
+
+Run Build Command:"/usr/bin/make" "cmTryCompileExec3528597257/fast"
+make[1]: entrant dans le répertoire « /home/kevin/rosbuild_ws/package_dir/IMU_COMport_Listener/build/CMakeFiles/CMakeTmp »
+/usr/bin/make -f CMakeFiles/cmTryCompileExec3528597257.dir/build.make CMakeFiles/cmTryCompileExec3528597257.dir/build
+make[2]: entrant dans le répertoire « /home/kevin/rosbuild_ws/package_dir/IMU_COMport_Listener/build/CMakeFiles/CMakeTmp »
+/usr/bin/cmake -E cmake_progress_report /home/kevin/rosbuild_ws/package_dir/IMU_COMport_Listener/build/CMakeFiles/CMakeTmp/CMakeFiles 1
+Building C object CMakeFiles/cmTryCompileExec3528597257.dir/CheckFunctionExists.c.o
+/usr/bin/cc   -DCHECK_FUNCTION_EXISTS=pthread_create   -o CMakeFiles/cmTryCompileExec3528597257.dir/CheckFunctionExists.c.o   -c /usr/share/cmake-3.2/Modules/CheckFunctionExists.c
+Linking C executable cmTryCompileExec3528597257
+/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTryCompileExec3528597257.dir/link.txt --verbose=1
+/usr/bin/cc   -DCHECK_FUNCTION_EXISTS=pthread_create    CMakeFiles/cmTryCompileExec3528597257.dir/CheckFunctionExists.c.o  -o cmTryCompileExec3528597257 -rdynamic -lpthreads 
+/usr/bin/ld: ne peut trouver -lpthreads
+collect2: error: ld returned 1 exit status
+make[2]: *** [cmTryCompileExec3528597257] Erreur 1
+make[2]: quittant le répertoire « /home/kevin/rosbuild_ws/package_dir/IMU_COMport_Listener/build/CMakeFiles/CMakeTmp »
+make[1]: *** [cmTryCompileExec3528597257/fast] Erreur 2
+make[1]: quittant le répertoire « /home/kevin/rosbuild_ws/package_dir/IMU_COMport_Listener/build/CMakeFiles/CMakeTmp »
+
+

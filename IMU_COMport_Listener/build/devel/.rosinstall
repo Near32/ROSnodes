@@ -1,0 +1,2 @@
+- setup-file:
+    local-name: /home/kevin/rosbuild_ws/package_dir/IMU_COMport_Listener/build/devel/setup.sh

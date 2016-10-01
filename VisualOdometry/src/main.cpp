@@ -1,0 +1,507 @@
+#include <ros/ros.h>
+#include <image_transport/image_transport.h>
+#include <cv_bridge/cv_bridge.h>
+#include <sensor_msgs/image_encodings.h>
+#include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/highgui/highgui.hpp>
+
+#define OPENCV_USE
+#include "./StructureFromMotion/SFM.h"
+
+int LiveFASTorSIFT(bool fast = false);
+cv::Mat process(cv::Mat* im_, Mat<int> *features_, vector<Mat<int> > *binStrings_, vector<cv::Mat> *patchs_, int *treshold_ = NULL, int *count_ = NULL, bool rotationInvariance = false);
+cv::Mat processFAST(cv::Mat* im_, Mat<int> *features_, vector<Mat<int> > *binStrings_, vector<cv::Mat> *patchs_, int *treshold_ = NULL, int *count_ = NULL, bool rotationInvariance = false);
+void seekMatchs(const vector<vector<cv::Mat> > patchs_ct, Mat<int> *matchs);
+
+
+namespace enc = sensor_msgs::image_encodings;
+
+static const char WINDOW[] = "Visual Odometry-Image Processed";
+
+bool newImage = false;
+image_transport::Publisher pub;
+vector<cv::Mat> frames;
+int nbrFrames = 0;
+
+vector<cv::Mat> framesProcessed;
+int nbrFramesProcessed = 0;
+
+
+//This function is called every time a new image is published
+void imageCallback(const sensor_msgs::ImageConstPtr& original_image)
+{
+	cv_bridge::CvImagePtr cv_ptr;
+	
+	try
+	{
+		cv_ptr = cv_bridge::toCvCopy(original_image,enc::BGR8);
+	}
+	catch( cv_bridge::Exception e)
+	{
+		ROS_ERROR("VisualOdometry::main.cpp::cv_bridge exception : %s", e.what());
+		return ;
+	}
+	
+	//-------------------------------------------------
+	//
+	//		Image Processing 
+	//
+	//-------------------------------------------------
+	//Inversion
+	/*
+	for(int i=0;i<cv_ptr->image.rows;i++)
+	{
+		for(int j=0;j<cv_ptr->image.cols;j++)
+		{
+			for(int k=0;k<cv_ptr->image.channels();k++)
+			{
+				cv_ptr->image.data[i*cv_ptr->image.rows*4+j*3+k] = 255-cv_ptr->image.data[i*cv_ptr->image.rows*4+j*3+k];
+			}
+		}
+	}
+	*/
+	//------------------------------------------------
+	
+	//------------------------------------------------
+	//
+	//		Stack of Frames
+	//
+	//-----------------------------------------------
+	frames.insert(frames.begin(), cv_ptr->image);
+	nbrFrames++;
+	if(nbrFrames)
+		newImage = true;
+	
+	//display :
+	cv::imshow(WINDOW,cv_ptr->image);
+	cv::waitKey(3);//3ms delay
+	
+	
+	//---------------------------------------------
+	//
+	//	End Image Processing
+	//
+	//---------------------------------------------
+	
+	
+	//--------------------------------------------
+	//
+	//	Convert CvImage to ROS image message and publish it to camera/image_processed topic
+	//
+	//--------------------------------------------
+	if(nbrFramesProcessed)
+	{	
+		cv_bridge::CvImagePtr cv_ptrProcessed(cv_ptr);
+		cv_ptrProcessed->image = framesProcessed[0];
+		pub.publish(cv_ptrProcessed->toImageMsg());
+		//pub.publish(cv_ptr->toImageMsg());
+		if(nbrFramesProcessed>=10)
+		{
+			framesProcessed.pop_back();
+			nbrFramesProcessed--;
+		}
+	}
+}
+
+
+int main(int argc, char* argv[])
+{
+	bool fast = true;
+	
+	if(argc<2)
+	{
+		ROS_INFO("VisualOdometry::Argument needed : 1->SIFT / 0->FAST[DEFAULT] PATH_TO_IMAGE_TOPIC.");
+	}
+	else
+		fast = (atoi(argv[1]) ? true:false);
+	
+	
+	ros::init(argc,argv,"VisualOdometry");
+	ros::NodeHandle nh;
+	image_transport::ImageTransport it(nh);
+	
+	cv::namedWindow(WINDOW,CV_WINDOW_AUTOSIZE);
+	
+	image_transport::Subscriber sub;
+	if(argc>2)
+	{
+		sub = it.subscribe(argv[2],1,imageCallback);
+	}
+	else
+	{
+		sub = it.subscribe("imageLOOP",1,imageCallback);
+	}
+	
+	
+	if(fast)
+		pub = it.advertise("VisualOdometry/imageFAST",1);
+	else
+		pub = it.advertise("VisualOdometry/imageSIFT",1);
+	
+	//ros::spin();
+	LiveFASTorSIFT(fast);
+	
+	cv::destroyWindow(WINDOW);
+	
+	ROS_INFO("VisualOdometry::main.cpp::No error.");
+	
+}
+
+
+cv::Mat process(cv::Mat* im_, Mat<int> *features_, vector<Mat<int> > *binStrings_, vector<cv::Mat> *patchs_, int *treshold_, int *count_, bool rotationInvariance)
+{
+    //float factor = 2;
+    float factor = 2;//18 fps
+    //float factor = 8;//10 fps
+    //float vfactor = 2;
+    float vfactor = 1;
+    int treshold = (treshold_ != NULL ? *treshold_:20);
+    cv::Mat im,imr,rim;
+    im = *im_; //cv::imread("../SFM_OCV/data1.pgm");
+    //cv::cvtColor(im1,im1,CV_BGR2GRAY);
+    //cv::cvtColor(im2,im2,CV_BGR2GRAY);
+    cv::resize(im,imr,cv::Size(0,0),1.0/factor,1.0/factor);    
+
+
+        /*------------------------------*/
+        int octave = 4;
+        int patchSize = 10;
+        int binLength = 4;
+        BRIEFSIFT detector(imr,im,binLength,1,patchSize,octave);
+        int mode = 0; /* not equal ; 1 =*/
+        detector.run(treshold, mode, rotationInvariance);
+        vector<Mat<int> > landmarks(detector.getLandmarks());
+        Mat<int> features(detector.getFeatures());
+        *patchs_ = detector.getPatchs();
+        vector<Mat<int> > bstr = detector.getBinaryString();
+
+        // Add results to image and save.
+        cv::resize(im,rim,cv::Size(0,0),(float)vfactor,(float)vfactor);
+
+        int count = 0;
+        for(int i=features.getLine();i--;)
+        {
+            for(int j=features.getColumn();j--;)
+            {
+                if(features.get(i+1,j+1) != 0)
+                {
+                    count++;
+                    int max = 0;
+                    for(int m=octave;m--;)
+                    {
+                        int value = landmarks[m].get(i+1,j+1);
+                        if( value !=0)
+                        {
+                            if(landmarks[max].get(i+1,j+1)<value)
+                                max = m;
+                        }
+
+                    }
+
+
+                    circle(rim, cv::Point((j+2)*factor*vfactor,(i+2)*factor*vfactor), 3*(max+1), cv::Scalar(255,0,0), 1, 8, 0);
+                    ostringstream nbr;
+                    nbr << count;
+                    //circle(frame2H, cv::Point((j+2),(i+2)), 1, cv::Scalar(255,0,0), 1, 5, 0);
+                    //circle(output, cv::Point((j+2)*1.0/(1*factor)*pow(2,4-oct-1), (i+2)*1.0/(1*factor)*pow(2,4-oct-1)), 3*landmarks[oct].get(i+1,j+1)+1, cv::Scalar((oct-1)*(oct-2)*255,(oct-3)*(oct-1)*255,(oct-3)*(oct-2)*255), 2, 8, 0);
+
+                }
+
+            }
+        }
+
+
+        *im_ = im;
+
+
+        if(count_ != NULL)
+            *count_ = count;
+
+        *binStrings_ = bstr;
+        *features_ = features;
+
+        return rim;
+
+}
+
+cv::Mat processFAST(cv::Mat* im_, Mat<int> *features_, vector<Mat<int> > *binStrings_, vector<cv::Mat> *patchs_, int *treshold_, int *count_, bool rotationInvariance)
+{
+    //float factor = 2;
+    float factor = 2;
+    //float vfactor = 2;
+    float vfactor = 1;
+    int treshold = (treshold_ != NULL ? *treshold_:20);
+    cv::Mat im,imr,rim;
+    im = *im_; //cv::imread("../SFM_OCV/data1.pgm");
+    //cv::cvtColor(im1,im1,CV_BGR2GRAY);
+    //cv::cvtColor(im2,im2,CV_BGR2GRAY);
+    cv::resize(im,imr,cv::Size(0,0),1.0/factor,1.0/factor);
+
+
+        /*------------------------------*/
+    bool show = true;
+    int nbrFeatures = 100;
+    int patchSize = 5;
+    int binLength = 8;
+        BRIEFFAST detector(imr,im,binLength,1,patchSize, nbrFeatures, show);
+        int mode = 0; /* not equal ; 1 =*/
+        detector.run(treshold, mode, rotationInvariance);
+        Mat<int> features(detector.getFeatures());
+        Mat<int> allFeatures(detector.getAllFeatures());
+        *patchs_ = detector.getPatchs();
+        vector<Mat<int> > bstr = detector.getBinaryString();
+
+        // Add results to image and save.
+        cv::resize(im,rim,cv::Size(0,0),(float)vfactor,(float)vfactor);
+
+        /*----------------------------*/
+
+        int count = 0;
+        for(int i=features.getLine();i--;)
+        {
+            for(int j=features.getColumn();j--;)
+            {
+                if(features.get(i+1,j+1) != 0)
+                {
+                    count++;
+
+                    circle(rim, cv::Point((j)*factor*vfactor,(i)*factor*vfactor), 5, cv::Scalar(255,0,0), 1, 8, 0);
+                    ostringstream nbr;
+                    nbr << count;
+                    //circle(frame2H, cv::Point((j+2),(i+2)), 1, cv::Scalar(255,0,0), 1, 5, 0);
+                    //circle(output, cv::Point((j+2)*1.0/(1*factor)*pow(2,4-oct-1), (i+2)*1.0/(1*factor)*pow(2,4-oct-1)), 3*landmarks[oct].get(i+1,j+1)+1, cv::Scalar((oct-1)*(oct-2)*255,(oct-3)*(oct-1)*255,(oct-3)*(oct-2)*255), 2, 8, 0);
+
+                }
+
+                if(allFeatures.get(i+1,j+1) != 0)
+                {
+                    circle(rim, cv::Point((j)*factor*vfactor,(i)*factor*vfactor), 2, cv::Scalar(0,255,0), 1, 8, 0);
+                }
+
+            }
+        }
+
+
+        *im_ = im;
+
+
+        if(count_ != NULL)
+            *count_ = detector.getNbrLandmarksFound();
+
+        *binStrings_ = bstr;
+        *features_ = features;
+
+        return rim;
+
+}
+
+int LiveFASTorSIFT(bool fast)
+{
+    clock_t timertotal = clock();
+    cv::Mat frame,frame1;
+    
+    
+    //-----------------------------------
+    //
+    //		image STREAMER
+    //		Camera
+    //-----------------------------------
+    /*
+    cv::VideoCapture cap(1);
+    if(!cap.isOpened())
+    {
+        cerr << "Erreur : Impossible de démarrer la capture video." << endl;
+        cap.open(0);
+        if(!cap.isOpened())
+            return -1;
+    }
+    */
+
+    if(fast)
+    	cv::namedWindow("VisualOdometry : FAST");
+    else
+    	cv::namedWindow("VisualOdometry : SIFT");
+    /*--------------------*/
+
+    //containers
+    vector<Mat<int> > features_ct;
+    vector<vector<Mat<int> > > binStrings_ct;
+    vector<vector<cv::Mat> > patchs_ct;
+
+
+    bool continuer = true;
+    Mat<int> features;
+    vector<Mat<int> > binStrings;
+    vector<cv::Mat> patchs;
+    int treshold = (fast ? 200 : 10);
+    int count = 0;
+    bool invariance = false;
+
+    int nbrfeat = 0;
+    int nbrfeatp = 0;
+    int nbrfeatGoal = (fast?50:50);
+
+    while(continuer)
+    {                
+        //------------------------------------
+        //
+        //		Image STREAMER
+        //		CAMERA
+        //------------------------------------
+        //cap >> frame;
+        //newImage = true;
+        //------------------------------------
+        //------------------------------------
+        //
+        //		PUBLISHER
+        //-----------------------------------
+        //
+        if(nbrFrames>0)
+	        frame = frames[0];
+        //cf image callback for newImage updater at true value...
+        //cf end of that function for newImage updater at false value...
+        //-----------------------------------
+        //-----------------------------------
+	
+	if(newImage)
+	{
+		
+		frame1 = (fast ? processFAST(&frame, &features, &binStrings, &patchs, &treshold, &count, invariance) : process(&frame, &features, &binStrings, &patchs, &treshold, &count, invariance) );
+
+		//features_ct.insert(features_ct.begin(), features);
+		//binStrings_ct.insert(binStrings_ct.begin(), binStrings);
+		patchs_ct.insert(patchs_ct.begin(), patchs);
+
+		Mat<int> matchs((int)0,2,count);
+		if(patchs_ct.size() >= 2)
+		{
+		    seekMatchs(patchs_ct, &matchs);
+		}
+		//afficher(&(patchs_ct[0][0]),NULL,NULL,true,(float)30);
+
+		if(cv::waitKey(30)>=0)
+		    continuer = false;
+
+		nbrfeatp=nbrfeat;
+		nbrfeat=count;
+		if(!fast)
+		{
+		    if(nbrfeat <= nbrfeatGoal-5)
+		        treshold-=abs(nbrfeatp-nbrfeat)/10+2;
+		    else if(nbrfeat >= nbrfeatGoal+5)
+		        treshold+=abs(nbrfeatp-nbrfeat)/10+2;
+		}
+		else
+		{
+		    if(nbrfeat <= nbrfeatGoal-5)
+		        treshold-=abs(nbrfeatp-nbrfeat)/100+2;
+		    else if(nbrfeat >= nbrfeatGoal+5)
+		        treshold+=abs(nbrfeatp-nbrfeat)/100+2;
+
+		}
+
+
+		ostringstream tfps;
+		ostringstream tfeatures;
+		ostringstream ttresh;
+		tfeatures << "Features : " << count;
+		ttresh << "Treshold : " << treshold;
+		cv::putText(frame1, tfeatures.str() , cv::Point(10,60), cv::FONT_HERSHEY_SIMPLEX, (float)1.25, cv::Scalar(0,0,255));
+		tfps << (float)(1.0/((float)(clock()-timertotal)/CLOCKS_PER_SEC)) << " FPS.";
+		cv::putText(frame1, tfps.str(), cv::Point(10,30), cv::FONT_HERSHEY_SIMPLEX, (float)1.25, cv::Scalar(0,0,255));
+		cv::putText(frame1, ttresh.str(), cv::Point(10,90), cv::FONT_HERSHEY_SIMPLEX, (float)1.25, cv::Scalar(0,0,255));
+		timertotal=clock();
+
+		if(fast)
+			cv::imshow("VisualOdometry : FAST", frame1);
+		else
+			cv::imshow("VisualOdometry : SIFT", frame1);        
+		
+		//---------------------
+		//---------------------
+		if(nbrFrames > 0)
+		{
+			frames.pop_back();
+			nbrFrames--;
+		}
+		
+		if(nbrFrames == 0)
+			newImage = false;
+			
+		//---------------------------
+		//
+		//	Processed Frames
+		//
+		//----------------------------
+		nbrFramesProcessed++;
+		framesProcessed.insert(framesProcessed.begin(), frame1);
+		//----------------------------
+		//----------------------------
+		
+	}
+	
+	//----------------------------
+	//
+	//	ROS SPIN ONCE
+	//
+	//----------------------------
+	ros::spinOnce();
+
+    }
+
+
+	
+    //cap.release();
+    if(fast)
+    	cv::destroyWindow("VisualOdometry : FAST");
+    else
+    	cv::destroyWindow("VisualOdometry : SIFT");
+    	
+    cv::destroyWindow(WINDOW);
+
+
+    return 0;
+}
+
+void seekMatchs(const vector<vector<cv::Mat> > patchs_ct, Mat<int> *matchs)
+{
+    //only between the last two frames.
+    int nbr_patchF1 = patchs_ct[0].size();
+    int nbr_patchF2 = patchs_ct[1].size();
+
+    Mat<float> patch_matching_error((float)0, nbr_patchF1, nbr_patchF2);
+
+    for(int i=0;i<nbr_patchF1;i++)
+    {
+        for(int j=0;j<nbr_patchF2;j++)
+        {            
+            patch_matching_error.set( (float)sum( sum( absM(patchs_ct[0][i]-patchs_ct[1][j]) ) ).at<float>(1,1), i+1,j+1);            
+        }
+
+        int idmin = 0;
+        int errmin = patch_matching_error.get(i,1);
+        for(int j=0;j<nbr_patchF2;j++)
+        {
+            if(patch_matching_error.get(i,j) < errmin)
+            {
+                idmin = j;
+                errmin = patch_matching_error.get(i,j);
+            }
+        }
+
+        matchs->set(i,1,i+1);
+        matchs->set(idmin, 2,i+1);
+        //attention, décalage entre indice de colonne et indice de patch.
+    }
+
+    //patch_matching_error.afficher();
+    //patch_matching_error = (255.0/max(patch_matching_error) )*patch_matching_error;
+    //cv::Mat show = Mat2cvp( patch_matching_error, patch_matching_error, patch_matching_error);
+    //afficher(&show,NULL,NULL,true,(float)10);
+
+    //matchs->afficher();
+
+
+}
+
+

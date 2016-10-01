@@ -1,0 +1,1 @@
+g++ hello_world_node.cpp -o hello_world_node -I/opt/ros/indigo/include -L/opt/ros/indigo/lib -Wl,-rpath,/opt/ros/indigo/lib -lroscpp -lrosconsole -lrostime

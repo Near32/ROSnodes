@@ -1,0 +1,15 @@
+<package>
+  <description brief="VisualOdometry">
+
+     VisualOdometry
+
+  </description>
+  <author>Kevin Denamganaï</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/VisualOdometry</url>
+  <depend package="tutorialROSOpenCV"/>
+
+</package>
+
+

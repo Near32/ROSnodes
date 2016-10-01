@@ -1,0 +1,20 @@
+<package>
+  <description brief="IMU_COMport_Listener">
+
+     IMU_COMport_Listener
+
+  </description>
+  <author>Kevin Denamganaï</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/IMU_COMport_Listener</url>
+  <depend package="sensor_msgs"/>
+  <depend package="nav_msgs"/>
+  <depend package="geometry_msgs"/>
+  <depend package="roscpp"/>
+  <depend package="rospy"/>
+  <depend package="tf"/>
+
+</package>
+
+

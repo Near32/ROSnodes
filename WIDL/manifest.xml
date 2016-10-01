@@ -1,0 +1,18 @@
+<package>
+  <description brief="WIDL">
+
+     WIDL
+
+  </description>
+  <author>Kevin Denamganaï</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/WIDL</url>
+  <depend package="scanEditor"/>
+  <depend package="geometry_msgs"/>
+  <depend package="nav_msgs"/>
+  <depend package="tf"/>
+
+</package>
+
+

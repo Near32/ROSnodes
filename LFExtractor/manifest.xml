@@ -1,0 +1,20 @@
+<package>
+  <description brief="LFExtractor">
+
+     LFExtractor : Landmarks/Features Extractor :
+     SIFT and FAST tracker with BRIEF-like descriptor...
+
+  </description>
+  <author>Kevin Denamganaï</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/LFExtractor</url>
+  <depend package="roscpp"/>
+  <depend package="image_transport"/>
+  <depend package="std_msgs"/>
+  <depend package="cv_bridge"/>
+  <depend package="uvc_camera"/>
+
+</package>
+
+

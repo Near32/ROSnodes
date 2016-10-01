@@ -1,0 +1,87 @@
+#include "OO.h"
+
+template<typename T>
+class OOCommandeQuadHorizonFinie : public OO<T>
+{
+    private :
+    Mat<T> Q;    /*positive semi definite matrix : state difference  cost*/
+    Mat<T> R;    /*positive semi definite matrix : command cost*/
+    double dt;    /*period between two state regenaration */
+    double Tech;    /*period between two command generation */
+    double horizonT;    /*time within which the goal is to be reached */
+    Mat<T> (*Ftrans)(Mat<T> x, Mat<T> u, double dt);
+    Mat<T> dX;
+    
+    int nbrCommand;
+    int nbrStatePerBOZ;
+    int nbrState;
+    T bound; 	/*set the boundary to the commands computed.*/
+    
+    public :
+    
+    OOCommandQuadHorizonFinie(int nbrCommand, Mat<T> (*F)(Mat<T>,Mat<T>,double), Mat<T> dX, double dt, double Tech, double horizonT, T bound )
+    {
+        Ftrans = F;
+        this->dt = d;
+        this->Tech = Tech;
+        this->horizonT = horizonT;
+        this->bound = bound;
+        this->dX = dX;
+        
+        /*Quadratic cost Matrix*/
+        Q = Mat<T>((T)0,5,5);
+        for(int i=Q.getLine();i--;)   Q.set((T)100,i+1,i+1);
+        R = Mat<T>((T)0,2,2);
+        for(int i=R.getLine();i--;)   R.set((T)1000,i+1,i+1);
+            
+        this->nbrCommand = nbrCommand;
+        this->nbrStatePerBOZ = (int) (Tech/dt);
+        //nbrState = (int) (horizonT/dt);
+        this->nbrState = nbrCommand*nbrStatePerBOZ;
+        
+    }
+    
+    
+    Mat<T> energy(Mat<T> X)
+    {              
+        vector<Mat<T> > state;
+        vector<Mat<T> > u;
+        
+        for(int i=0;i<nbrCommand;i++)
+        {            
+            if( fabs_(X.get(i*2,1)) > bound)
+            {
+            	X.set( (X.get(i*2)/fabs_(X.get(i*2,1)) )*bound,i*2,1);
+            }   
+            
+            if( fabs_(X.get(i*2+1,1)) > bound)
+            {
+            	X.set( (X.get(i*2+1)/fabs_(X.get(i*2+1,1)) )*bound,i*2+1,1);
+            }
+            
+            u.insert(u.end(), extract(X, i*2,1, i*2+1, 1) );
+        }
+        
+        state.insert( state.begin(), Mat<T>((T))0,5,1) );
+        for(int i=0;i<nbrCommand;i++)
+        {
+            for(int j=0;j<nbrStateBOZ;j++)
+            {
+                state.insert(state.end(), Ftrans( state[i*nbrStateBOZ+j], u[i], dt) );
+            }
+        }
+        
+        Mat<T> costState(transpose(state[0])*(Q*state[0]) );
+        for(int i=1;i<nbrState;i++)    costState = costState + transpose( state[i]-dX)*(Q * (state[i]-dX) );
+        
+        Mat<T> costCommand(transpose(u[0])*(R*u[0]) );
+        for(int i=1;i<nbrCommand;i++)   costCommand = costCommand + transpose( u[i])*(R*u[i]);
+        
+        return (T)(1.0/2)*(costCommand+costState);
+    }
+    
+    Mat<T> init()
+    {
+        return Mat<T>((T)0,nbrCommand*2,1);
+    }
+}

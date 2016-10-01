@@ -1,0 +1,34 @@
+#IncludeRegexLine: ^[ 	]*#[ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/kevin/rosbuild_ws/package_dir/IMU_COMport_Listener/src/rs232.c
+rs232.h
+/home/kevin/rosbuild_ws/package_dir/IMU_COMport_Listener/src/rs232.h
+
+/home/kevin/rosbuild_ws/package_dir/IMU_COMport_Listener/src/rs232.h
+stdio.h
+-
+string.h
+-
+termios.h
+-
+sys/ioctl.h
+-
+unistd.h
+-
+fcntl.h
+-
+sys/types.h
+-
+sys/stat.h
+-
+limits.h
+-
+windows.h
+-
+

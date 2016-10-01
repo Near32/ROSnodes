@@ -1,0 +1,15 @@
+<package>
+  <description brief="ImagePublisher">
+
+     ImagePublisher
+
+  </description>
+  <author>Kevin Denamganaï</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/ImagePublisher</url>
+  <depend package="tutorialROSOpenCV"/>
+
+</package>
+
+

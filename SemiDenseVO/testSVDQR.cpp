@@ -1,0 +1,420 @@
+#include "../MATv2/Mat.h"
+
+
+
+class QRbis
+{
+	public :
+	
+	Mat<float> Q;
+	Mat<float> R;
+	
+	QRbis(const Mat<float>& A) : Q(Mat<float>(0.0f,A.getLine(),A.getLine())), R(Mat<float>(A))
+	{
+		int m = A.getLine();
+		int n = A.getColumn();
+		for(int i=1;i<=m;i++)	Q.set( 1.0f, i,i);
+		
+		for(int j=1;j<=n;j++)
+		{
+			float normx;
+			Mat<float> x( extract(R, j,j,m,j) );
+			normx = sqrt((transpose(x)*x).get(1,1));
+			
+			float s = (R.get(j,j) > 0 ? -1.0f : 1.0f);
+			float u1 = R.get(j,j)-s*normx;
+			
+			Mat<float> w( x/u1 );
+			w.set( 1.0f, 1,1);
+			
+			//float tau = -s*u1/normx;
+			float tau = (normx!=0 ? -s*u1/normx : -s*u1);
+			
+			Mat<float> H( -tau*(w*transpose(w)));
+			for(int i=1;i<=H.getLine();i++)	H.set(1.0f+H.get(i,i), i,i);
+			
+			std::cout << "H symmetry and orthogonality : " << std::endl;
+			H.afficher();
+			(transpose(H)*H).afficher();
+			
+			
+			Mat<float> newR(extract(R,j,1,m,n));
+			//newR -= (tau*w)*(transpose(w)*newR);
+			newR = H*newR;
+			
+			for(int ii=j;ii<=m;ii++)
+			{
+				for(int jj=1;jj<=n;jj++)
+				{
+					R.set( newR.get(ii-j+1,jj), ii,jj);
+				}
+			}
+			
+			Mat<float> newQ(extract(Q,1,j,m,m) );
+			//newQ -= (newQ*w)*transpose(tau*w);
+			newQ = newQ*H;
+			
+			for(int ii=1;ii<=m;ii++)
+			{
+				for(int jj=j;jj<=m;jj++)
+				{
+					Q.set( newQ.get(ii,jj-j+1), ii,jj);
+				}
+			}
+			
+			std::cout << "STEP : " << j << std::endl;
+			Q.afficher();
+			R.afficher();
+			//(Q*transpose(Q)).afficher();
+			
+		}
+	}
+};
+
+class QRter
+{
+	public :
+	
+	Mat<float> Q;
+	Mat<float> R;
+	
+	QRter(const Mat<float>& A) : Q(Mat<float>(0.0f,A.getLine(),A.getLine())), R(Mat<float>(A))
+	{
+		int m = A.getLine();
+		int n = A.getColumn();
+		for(int i=1;i<=m;i++)	Q.set( 1.0f, i,i);
+		
+		for(int j=1;j<=n-1;j++)
+		{
+			volatile float normx;
+			Mat<float> x( extract(R, 1,j,m,j) );
+			normx = sqrt((transpose(x)*x).get(1,1));
+			
+			//let us zero the upper values :
+			for(int i=1;i<j;i++)	x.set( 0,i,1);
+			
+			Mat<float> ej((float)0,m,1);
+			ej.set(1,j,1);
+			
+			Mat<float> dummy(x-(float)normx*ej);
+			volatile float uj = sqrt( (transpose(dummy)*dummy).get(1,1) );
+			
+			
+			Mat<float> w( (float)(1.0f/uj)*dummy );
+			
+			
+			Mat<float> H( (-2.0f)*(w*transpose(w)));
+			for(int i=1;i<=H.getLine();i++)	H.set(1.0f+H.get(i,i), i,i);
+			
+			/*
+			std::cout << "H symmetry and orthogonality : " << std::endl;
+			H.afficher();
+			(transpose(H)*H).afficher();
+			(H*H).afficher();
+			*/
+			R = H*R;
+			Q = Q*H;
+			
+			/*
+			std::cout << "STEP : " << j << std::endl;
+			Q.afficher();
+			R.afficher();
+			std::cout << "STEP : orthogonality of Q : " << j << std::endl;
+			(Q*transpose(Q)).afficher();
+			*/
+		}
+	}
+	
+	Mat<float> getR()	const
+	{
+		return R;
+	}
+	
+	Mat<float> getQ()	const
+	{
+		return Q;
+	}
+};
+
+
+class SVDbis
+{
+
+    private :
+
+    Mat<float>* A_;
+    QRter* qr1;
+    QRter* qr;
+    Mat<float>* U;
+    Mat<float>* S;
+    Mat<float>* V;
+
+    public :
+
+    SVDbis(Mat<float> A, int iteration = 100)
+    {
+        /* QR decomposition */
+        qr1 = new QRter(A);
+        Mat<float> Q1(qr1->getQ());
+        Mat<float> R1(qr1->getR());
+#ifdef verbose
+        cout << "//////////////////////////////" << endl;
+        cout << "Matrice Q1 : " << endl;
+        Q1.afficher();
+        cout << "Matrice R1 : " << endl;
+        R1.afficher();
+        /*-------------------*/
+
+        cout << endl << "Decomposition QR : DONE !!!" << endl << endl;
+#endif
+        /* QR decomposition of R1 */
+        qr = new QRter(transpose(R1));
+        Mat<float> Q(qr->getQ());
+        Mat<float> R(qr->getR());
+#ifdef verbose
+        cout << "Matrice Q : " << endl;
+        Q.afficher();
+        cout << "Matrice R : " << endl;
+        R.afficher();
+        cout << "Matrice R1 : " << endl;
+        R1.afficher();
+        /*---------------------*/
+
+        cout << endl << "Decomposition QR de R.t : DONE !!!" << endl << endl;
+
+        cout << "Verification : " << endl;
+        cout << "Matrice A :" << endl;
+        A.afficher();
+        cout << "Produit : " << endl;
+        (Q1*transpose(R)*transpose(Q)).afficher();
+        //cout << "Verification de l'orthogonalité de Q1 : " << endl;
+        //(Q1*transpose(Q1)).afficher();
+        cout << "Verification de D : " << endl;
+        transpose(R).afficher();
+        //cout << "Verification de l'orthogonalité de Q : " << endl;
+        //(Q*transpose(Q)).afficher();                
+        
+        /*----------------------------------------*/
+        /*----------------------------------------*/
+        /*----------------------------------------*/
+        cout << "ASSIGNATION ..." << endl;
+        R.afficher();
+#endif
+
+
+        Mat<float> D(transpose(R));
+        QRter* rec = new QRter(D);
+        Mat<float> Qr(rec->getQ());
+        Mat<float> rtemp(rec->getR());
+        delete rec;
+        rec = new QRter(transpose(rtemp));
+        Mat<float> tQl(transpose(rec->getQ()));
+        D = transpose( rec->getR());
+
+        Mat<float> error(D);
+        int dimmax = (error.getLine() > error.getColumn() ? error.getLine() : error.getColumn());
+        for(int i=1;i<= dimmax;i++)	error.set((float)0, i,i);
+        float eps =  numeric_limits<float>::epsilon();
+
+        while( iteration > 0 && sum(sum(absM(error))).get(1,1) > eps)
+        {
+        	iteration--;
+        	std::cout << " step : " << iteration << " ; Error : " << sum(sum(absM(error))).get(1,1) << " / " << eps << endl;
+#ifdef verbose        
+            cout << "Iteration : " << iteration << " : error : " << sum(sum(absM(error))).get(1,1) << " / " << eps << endl;
+#endif
+            delete rec;
+            rec = new QRter(D);
+            Qr = Qr * rec->getQ();
+            rtemp = rec->getR();
+            delete rec;
+            rec = new QRter(transpose(rtemp));
+            tQl = transpose(rec->getQ()) * tQl;
+            D = transpose( rec->getR());
+#ifdef verbose
+            D.afficher();
+#endif
+
+            /////////////////
+            error = D;
+            dimmax = (error.getLine() > error.getColumn() ? error.getLine() : error.getColumn());
+            for(int i=1;i<= dimmax;i++)	error.set((float)0, i,i);
+
+
+        }
+        delete rec;
+
+        Qr = Q1*Qr;
+        tQl = tQl*transpose(Q);
+
+
+#define verbose
+#ifdef verbose
+        cout << "Methode itérative : " << endl;
+        cout << "Matrice originale :" << endl;
+        A.afficher();
+        cout << "Produit : " << endl;
+        (Qr*D*tQl).afficher();
+        cout << " U :" << endl;
+        Qr.afficher();
+        cout << " S :" << endl;
+        D.afficher();
+        cout << " V :" << endl;
+        transpose(tQl).afficher();
+#endif        
+        ///////////////////////////////////////////////////////////////
+	/*
+        A_ = new Mat<float>(A);
+        U = new Mat<float>(Q1);
+        S = new Mat<float>(transpose(R));
+        V = new Mat<float>(Q);
+        */
+        //cout << "Initialement : D vaut :" << endl;
+        //transpose(R).afficher();
+        
+        A_ = new Mat<float>(A);
+        U = new Mat<float>(Qr);
+        S = new Mat<float>(D);
+        V = new Mat<float>(transpose(tQl));
+
+        /*nettoyage */
+        /*rien... that's how the cookie crumble x) !! */
+
+    }
+
+    ~SVDbis()
+    {
+        delete A_;
+        delete qr1;
+        delete qr;
+        delete U;
+        delete S;
+        delete V;
+    }
+
+    Mat<float> getU() const
+    {
+        return *U;
+    }
+
+    Mat<float> getS() const
+    {
+        return *S;
+    }
+
+    Mat<float> getV() const
+    {
+        return *V;
+    }
+
+};
+
+
+
+int main(int argc, char* argv[])
+{
+	/*
+	Mat<float> A(1.0f,3,2);
+	A.set( 1.26f, 1,2);
+	A.set(1.82f, 2,2);
+	A.set(2.22,3,2);
+	A = A*transpose(A);
+	*/
+	
+	/*
+	Mat<float> A(3,1);
+	A.set( 1.26f, 1,1);
+	A.set(1.82f, 2,1);
+	A.set(2.22,3,1);
+	A = A*transpose(A);
+	*/
+	
+	
+	Mat<float> A(numeric_limits<float>::epsilon(),3,3);
+	A.set( 10.2f, 1,1);
+	A.set(2.82f, 2,2);
+	A.set(2.22,3,3);
+	//A = A*transpose(A);
+	//Mat<float> P(3,3,(char)2);
+	//Mat<float> P(numeric_limits<float>::epsilon(),3,3);
+	Mat<float> P(1.0f,3,3);
+	P.set( 1.0f, 1,1);
+	P.set( 3.0f, 2,2);
+	P.set( 10.0f, 3,3);
+	
+	Mat<float> invP( invGJ(P) );
+	std::cout << " INVERSION VERIFICATION : " << std::endl;
+	(P*invP).afficher();
+	
+	A = invP*A*P;
+	
+	
+	/*
+	Mat<float> A(6,1,(char)1);
+	A = A*transpose(A);
+	*/
+	
+	
+	/*
+	SVD<float> instanceSVD(A);
+	*/
+	
+	/*
+	QR<float> instanceQR(A);
+	Mat<float> Q(instanceQR.getQ());
+	Q.afficher();
+	(Q*transpose(Q)).afficher();
+	//instanceQR.getR().afficher();
+	std::cout << "COMPARAISON : " << std::endl;
+	A.afficher();
+	(Q*instanceQR.getR()).afficher();
+	*/
+	
+	/*
+	QRbis instanceQRbis(A);
+	std::cout << "MATRICES Q & R : " << std::endl;
+	Mat<float> Q(instanceQRbis.Q);
+	Q.afficher();
+	//(Q*transpose(Q)).afficher();
+	Mat<float> R(instanceQRbis.R);
+	R.afficher();
+	
+	std::cout << "COMPARAISON : " << std::endl;
+	A.afficher();
+	(Q*R).afficher();
+	*/
+	
+	/*
+	QRter instanceQRter(A);
+	
+	std::cout << "MATRICES Q & R : " << std::endl;
+	Mat<float> Q(instanceQRter.Q);
+	Q.afficher();
+	(Q*transpose(Q)).afficher();
+	Mat<float> R(instanceQRter.R);
+	R.afficher();
+	
+	std::cout << "COMPARAISON : " << std::endl;
+	A.afficher();
+	(Q*R).afficher();
+	*/
+	
+	
+	clock_t time = clock();
+	//SVDbis instanceSVD(A,1);
+	SVD<float> instanceSVD(A);
+	std::cout << "SVD COMPUTATION TOOK : " << (float)(clock()-time)/CLOCKS_PER_SEC << " seconds." << std::endl;
+	Mat<float> S(instanceSVD.getS());
+	Mat<float> V(transpose(instanceSVD.getV()));
+	Mat<float> v1(extract(V,1,1,A.getLine(),1));
+	float eigv1 = S.get(1,1);
+	
+	S.afficher();
+	V.afficher();
+	v1.afficher();
+	((1.0f/eigv1)*(S*v1)).afficher();
+	
+	return 0;
+}
+
+

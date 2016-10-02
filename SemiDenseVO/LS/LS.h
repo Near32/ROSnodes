@@ -1,0 +1,106 @@
+#ifndef LS_H
+#define LS_H
+
+#include "../../MATv2/Mat.h"
+#include "../CAS/CAS.h"
+
+template<typename T>
+class LS
+{
+	public :
+	
+	T error;
+	bool solved;
+	size_t num_constraints;
+	size_t nbrVar;
+	
+	Mat<T> A;
+	Mat<T> y;
+	Mat<T> iA;
+	
+	LS( size_t nbrVar_ = 6) : solved(false), error((T)0), num_constraints(0), nbrVar(nbrVar_), A(Mat<T>((T)0,nbrVar,nbrVar)), y(Mat<T>((T)0,nbrVar,1)), iA(Mat<T>(nbrVar,nbrVar))
+	{
+		
+	}
+	
+	void initialize()
+	{
+		solved = false;
+		error = (T)0;
+		num_constraints = 0;
+		
+		A = Mat<T>((T)0,nbrVar,nbrVar);
+		y = Mat<T>((T)0,nbrVar,1);
+		
+	}
+	
+	void update(const Mat<T>& J,const T& res, const T& weight)
+	{	
+		Mat<T> tJJ((J*transpose(J))); 
+		
+		/*
+		float det = computeDeterminant(tJJ);
+		std::cout << "DETERMINANT OF tJJ : " << det << std::endl;
+		tJJ.afficher();
+		J.afficher();
+		std::cout << "-----------------------------------" << std::endl;
+		*/
+		
+		A += weight*tJJ;
+		y -= (weight*res)*J;
+		
+		error += weight*res*res;
+		num_constraints += 1;
+		
+	}
+	
+	void finish()
+	{	
+		/*
+		SVD<T> instanceSVD(A);
+		*/
+		/*std::cout << "EIGEN VALUES : " << std::endl;
+		instanceSVD.getS().afficher();
+		Mat<T> U(instanceSVD.getU());
+		U.afficher();
+		(U*transpose(U)).afficher();
+		Mat<T> V(instanceSVD.getV());
+		V.afficher();
+		(V*transpose(V)).afficher();
+		*/
+		
+		
+		A *= (T)(1.0f/num_constraints);
+		y *= (T)(1.0f/num_constraints);
+		error /= (T) num_constraints;
+		
+		/*
+		SVDbis<T> instanceSVD(A,1);
+		*/
+	}
+	
+	void solve(Mat<T>& x)
+	{
+		iA = invGJ( &A );
+		//x = (1.0f/num_constraints) * (iA*y);
+		x = (iA*y);
+		std::cout << " NORME SOLUTION : " << norme2(x) << std::endl;
+		
+		
+		/*
+		float det = computeDeterminant(A);
+		std::cout << "DETERMINANT OF A : " << det << std::endl;
+		
+		A.afficher();
+		iA.afficher();
+		transpose(y).afficher();
+		transpose(x).afficher();
+		*/
+		
+		solved = true;
+	}
+};
+
+
+
+#endif

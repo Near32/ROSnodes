@@ -1,0 +1,2 @@
+#!/bin/bash
+g++-4.7 main.cpp -g -lopencv_core -lopencv_highgui -lopencv_features2d -lopencv_calib3d -lopencv_legacy -lopencv_imgproc -lGL -lX11 -lXxf86vm -o VO.output -std=c++11 -pthread
